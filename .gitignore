@@ -5,6 +5,15 @@
 *.suo
 *.user
 *.sln.docstates
+*.sdf
+*.suo
+hid.lib
+setupapi.lib
+hidpi.h
+hidsdi.h
+hidusage.h
+setupapi.h
+
 
 # Build results
 
