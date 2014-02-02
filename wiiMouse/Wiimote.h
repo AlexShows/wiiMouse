@@ -15,10 +15,35 @@ using namespace std;
 #include "objbase.h"
 #include "stdlib.h"
 
+/***************************
+	IMPORTANT
+You'll need these headers 
+and lib files from the DDK:
+
+1. hid.lib
+2. setupapi.lib
+3. hidpi.h
+4. hidsdi.h
+5. hidusage.h
+6. setupapi.h
+
+Also, the libs are not
+compiled with safe exception
+handling, so any project
+including them needs to 
+specify /SAFEESH:NO.
+In Project Properties, this
+is in the Configuration,
+Linker, Advanced section.
+
+***************************/
 extern "C"{
 #include "setupapi.h"		// needs setupapi.lib
 #include "hidsdi.h"			// needs hid.lib
 }
+
+#pragma comment(lib, "hid.lib")
+#pragma comment(lib, "setupapi.lib")
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -198,6 +223,7 @@ private:
 	HANDLE AttachToPnP();
 	HANDLE GetDeviceHandle();
 	BOOL Initialize();
+	void UpdateButtonStates(unsigned short buttons);
 	void ClearPackets();
 	void ReadPacket();
 	void WritePacket();

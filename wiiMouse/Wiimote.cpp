@@ -9,6 +9,9 @@ magic numbers in the header file wiimote.h.
 
 In this particular implementation, the debug loop is used to drive the keyboard and mouse.
 
+NOTE: You'll need to point to the location of your hid.lib and setupapi.lib from the DDK.
+	See WiiMote.h for more information.
+
 TODO: This should use more STL, exception handling, and other best practices. It was used
 	as a quick demo and hack while exploring the use of Bluetooth HID devices.
 
@@ -127,7 +130,7 @@ HANDLE CWiimote::GetDeviceHandle()
 						NULL);
 
 			/* Open the device */
-			hDevice = CreateFileW((LPWSTR)&MyHIDDeviceData.DevicePath, 
+			hDevice = CreateFile((LPWSTR)&MyHIDDeviceData.DevicePath, 
 				GENERIC_READ|GENERIC_WRITE,
 				FILE_SHARE_READ|FILE_SHARE_WRITE, 
 				&SecurityAttributes, 
@@ -383,7 +386,7 @@ BOOL CWiimote::Initialize()
 	return true;
 }
 
-/* Enter into a debug loop, displaying byte traffic 
+/* Enter into a debug loop, doing something that seems useful at the time. 
  Returns 0 on success.
  Read the comments inside this function for more details on what this is used for.
 */
@@ -783,13 +786,39 @@ void CWiimote::ClearPackets()
 	memset(&wrPkt.buffer,0,WM_PACKET_SIZE);
 }
 
+/* Given an input mask with button states, save the 
+individual button states into the booleans of the class */
+void CWiimote::UpdateButtonStates(unsigned short buttons)
+{
+	mote.dpad.up = (buttons & WM_BUT_UP) != 0; // Avoiding C4800 warning
+	mote.dpad.down = (buttons & WM_BUT_DOWN) != 0;
+	mote.dpad.left = (buttons & WM_BUT_LEFT) != 0;
+	mote.dpad.right = (buttons & WM_BUT_RIGHT) != 0;
+
+	mote.button.minus = (buttons & WM_BUT_MINUS) != 0;
+	mote.button.plus = (buttons & WM_BUT_PLUS) != 0;
+	mote.button.home = (buttons & WM_BUT_HOME) != 0;
+	mote.button.a = (buttons & WM_BUT_A) != 0;
+
+	mote.button.b = (buttons & WM_BUT_B) != 0;
+	mote.button.one = (buttons & WM_BUT_ONE) != 0;
+	mote.button.two = (buttons & WM_BUT_TWO) != 0;
+}
+
 /* Read a packet from the device. 
 Assumes the caller has set up the read packet buffer with appropriate contents.
 Relies on the _packet struct's various data to store succcess, bytes read, etc. */
-void CWiimote::ReadPacket(){ rdPkt.success = ReadFile(HIDHandle, &rdPkt.buffer, WM_PACKET_SIZE, &rdPkt.bytesTransferred, NULL);}
+void CWiimote::ReadPacket()
+{ 
+	rdPkt.success = ReadFile(HIDHandle, &rdPkt.buffer, WM_PACKET_SIZE, &rdPkt.bytesTransferred, NULL);
+}
+
 /* Write a packet to the device.
 Assumes the caller has set up the read packet buffer with appropriate contents. */
-void CWiimote::WritePacket(){ wrPkt.success = WriteFile(HIDHandle, &wrPkt.buffer, WM_PACKET_SIZE, &wrPkt.bytesTransferred, NULL);}
+void CWiimote::WritePacket()
+{ 
+	wrPkt.success = WriteFile(HIDHandle, &wrPkt.buffer, WM_PACKET_SIZE, &wrPkt.bytesTransferred, NULL);
+}
 
 /* Read a report from the wiimote and dissect
 it, saving the reports data */
@@ -812,23 +841,12 @@ void CWiimote::ParseReport()
 			These need to be combined into a 16-bit value and then bit-tested
 			with each of the button masks. */
 
+			// Combine the buffer bytes into the unsigned shot
 			buttons = rdPkt.buffer[1] << 8;
 			buttons |= rdPkt.buffer[2];
 
-			/* Update the button information */
-			mote.dpad.up = buttons & WM_BUT_UP;
-			mote.dpad.down = buttons & WM_BUT_DOWN;
-			mote.dpad.left = buttons & WM_BUT_LEFT;
-			mote.dpad.right = buttons & WM_BUT_RIGHT;
-
-			mote.button.minus = buttons & WM_BUT_MINUS;
-			mote.button.plus = buttons & WM_BUT_PLUS;
-			mote.button.home = buttons & WM_BUT_HOME;
-			mote.button.a = buttons & WM_BUT_A;
-
-			mote.button.b = buttons & WM_BUT_B;
-			mote.button.one = buttons & WM_BUT_ONE;
-			mote.button.two = buttons & WM_BUT_TWO;
+			// Update button state based on the bytes provided
+			UpdateButtonStates(buttons);
 		}
 
 		if(reportType == WM_MODE_ACC)
@@ -840,20 +858,7 @@ void CWiimote::ParseReport()
 			buttons = rdPkt.buffer[1] << 8;
 			buttons |= rdPkt.buffer[2];
 
-			/* Update the button information */
-			mote.dpad.up = buttons & WM_BUT_UP;
-			mote.dpad.down = buttons & WM_BUT_DOWN;
-			mote.dpad.left = buttons & WM_BUT_LEFT;
-			mote.dpad.right = buttons & WM_BUT_RIGHT;
-
-			mote.button.minus = buttons & WM_BUT_MINUS;
-			mote.button.plus = buttons & WM_BUT_PLUS;
-			mote.button.home = buttons & WM_BUT_HOME;
-			mote.button.a = buttons & WM_BUT_A;
-
-			mote.button.b = buttons & WM_BUT_B;
-			mote.button.one = buttons & WM_BUT_ONE;
-			mote.button.two = buttons & WM_BUT_TWO;
+			UpdateButtonStates(buttons);
 
 			mote.axis.x = rdPkt.buffer[3];
 			mote.axis.y = rdPkt.buffer[4];
@@ -878,19 +883,7 @@ void CWiimote::ParseReport()
 			buttons |= rdPkt.buffer[2];
 
 			/* Update the button information */
-			mote.dpad.up = buttons & WM_BUT_UP;
-			mote.dpad.down = buttons & WM_BUT_DOWN;
-			mote.dpad.left = buttons & WM_BUT_LEFT;
-			mote.dpad.right = buttons & WM_BUT_RIGHT;
-
-			mote.button.minus = buttons & WM_BUT_MINUS;
-			mote.button.plus = buttons & WM_BUT_PLUS;
-			mote.button.home = buttons & WM_BUT_HOME;
-			mote.button.a = buttons & WM_BUT_A;
-
-			mote.button.b = buttons & WM_BUT_B;
-			mote.button.one = buttons & WM_BUT_ONE;
-			mote.button.two = buttons & WM_BUT_TWO;
+			UpdateButtonStates(buttons);
 
 			mote.axis.x = rdPkt.buffer[3];
 			mote.axis.y = rdPkt.buffer[4];
@@ -997,31 +990,31 @@ BOOL CWiimote::EnableLED(byte mask)
 data...assumes axis and calibration data is already gathered */
 void CWiimote::CalcTilt()
 {
-    float xs = mote.scale.x - mote.zero.x;
-    float ys = mote.scale.y - mote.zero.y;
-    float zs = mote.scale.z - mote.zero.z;	
+    float xs = (float) (mote.scale.x) - (float) (mote.zero.x);
+    float ys = (float) (mote.scale.y) - (float) (mote.zero.y);
+    float zs = (float) (mote.scale.z) - (float) (mote.zero.z);	
 	
     float x = (float) ((float)mote.axis.x - (float)mote.zero.x) / xs;
     float y = (float) ((float)mote.axis.y - (float)mote.zero.y) / ys;
     float z = (float) ((float)mote.axis.z - (float)mote.zero.z) / zs;
 
-    mote.tilt.x = (asin(x) * 180.0f / M_PI);
-    mote.tilt.y = (asin(y) * 180.0f / M_PI);
-    mote.tilt.z = (asin(z) * 180.0f / M_PI);
+    mote.tilt.x = (asin(x) * 180.0f / (float) M_PI);
+    mote.tilt.y = (asin(y) * 180.0f / (float) M_PI);
+    mote.tilt.z = (asin(z) * 180.0f / (float) M_PI);
 
 	if(mote.chuk.connected == true)
 	{
-		xs = mote.chuk.scale.x - mote.chuk.zero.x;
-		ys = mote.chuk.scale.y - mote.chuk.zero.y;
-		zs = mote.chuk.scale.z - mote.chuk.zero.z;
+		xs = (float) (mote.chuk.scale.x) - (float) (mote.chuk.zero.x);
+		ys = (float) (mote.chuk.scale.y) - (float) (mote.chuk.zero.y);
+		zs = (float) (mote.chuk.scale.z) - (float) (mote.chuk.zero.z);
 
 		x = (float) (mote.chuk.axis.x - mote.chuk.zero.x) / xs;
 		y = (float) (mote.chuk.axis.y - mote.chuk.zero.y) / ys;
 		z = (float) (mote.chuk.axis.z - mote.chuk.zero.z) / zs;
 		
-		mote.chuk.tilt.x = (asin(x) * 180.0f / M_PI);
-		mote.chuk.tilt.y = (asin(y) * 180.0f / M_PI);
-		mote.chuk.tilt.z = (asin(z) * 180.0f / M_PI);
+		mote.chuk.tilt.x = (asin(x) * 180.0f / (float) M_PI);
+		mote.chuk.tilt.y = (asin(y) * 180.0f / (float) M_PI);
+		mote.chuk.tilt.z = (asin(z) * 180.0f / (float) M_PI);
 	}
 }
 
